@@ -30,7 +30,7 @@ DoubleValue = struct.Struct( '<d' )
 class NatNetClient:
     def __init__( self ):
         # Change this value to the IP address of the NatNet server.
-        self.serverIPAddress = "192.168.100.5" 
+        self.serverIPAddress = "192.168.1.249" 
 
         # Change this value to the IP address of your local network interface import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

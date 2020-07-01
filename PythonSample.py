@@ -26,6 +26,14 @@ from NatNetClient import NatNetClient
 import time
 
 import numpy as np
+import socket
+import struct
+import time
+
+UDP_IP = "127.0.0.1"
+UDP_PORT = 9000
+
+time_prev = time.clock()
 
 skel = None
 
@@ -37,13 +45,29 @@ def receiveNewFrame( frameNumber, markerSetCount, unlabeledMarkersCount, rigidBo
 
 # This is a callback function that gets connected to the NatNet client. It is called once per rigid body per frame
 def receiveRigidBodyFrame( id, position, rotation ):
-    print( "Received frame for rigid body", id )
+    # print( "Received frame for rigid body", id )
     pass
 
 def skelListener(data):
-    print(data)
-    # here we send to framework through UDP
-    pass
+    # print(data)
+    global time_prev
+    print('new skeleton')
+
+    MESSAGE = [item for sublist in data for item in sublist]
+
+    # for i in range(0,100):
+
+    strs = 'ifffffff'*13
+
+    data_packed = struct.pack(strs, *MESSAGE)
+
+    sock = socket.socket(socket.AF_INET,  # Internet
+                        socket.SOCK_DGRAM)  # UDP
+    sock.sendto(data_packed, (UDP_IP, UDP_PORT))
+
+    time_curr = time.clock()
+    print('f = {}s'.format(1/(time_curr-time_prev)))
+    time_prev = time_curr
 
 # This will create a new NatNet client
 streamingClient = NatNetClient()
