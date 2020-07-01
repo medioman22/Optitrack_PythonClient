@@ -30,10 +30,16 @@ DoubleValue = struct.Struct( '<d' )
 class NatNetClient:
     def __init__( self ):
         # Change this value to the IP address of the NatNet server.
-        self.serverIPAddress = "192.168.1.100" 
+        self.serverIPAddress = "192.168.100.5" 
 
-        # Change this value to the IP address of your local network interface
-        self.localIPAddress = socket.gethostbyname(socket.gethostname())
+        # Change this value to the IP address of your local network interface import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        my_ip = s.getsockname()[0]
+        s.close()
+        self.localIPAddress = my_ip
+        print('receiving Motive data on ' + my_ip)
+#        self.localIPAddress = '192.168.1.211'
            
 
         # This should match the multicast address listed in Motive's streaming settings.
@@ -47,6 +53,7 @@ class NatNetClient:
 
         # Set this to a callback method of your choice to receive per-rigid-body data at each frame.
         self.rigidBodyListener = None
+        self.skelListener = None
         
         # NatNet stream version. This will be updated to the actual version the server is using during initialization.
         self.__natNetStreamVersion = (3,0,0,0)
@@ -87,7 +94,7 @@ class NatNetClient:
         return result
 
     # Unpack a rigid body object from a data packet
-    def __unpackRigidBody( self, data ):
+    def __unpackRigidBody( self, data, skel = False ):
         offset = 0
 
         # ID (4 bytes)
@@ -102,6 +109,12 @@ class NatNetClient:
         rot = Quaternion.unpack( data[offset:offset+16] )
         offset += 16
         trace( "\tOrientation:", rot[0],",", rot[1],",", rot[2],",", rot[3] )
+
+
+        if skel:
+            self.skel_parts.append([id])   
+            self.skel_parts.append(pos)     
+            self.skel_parts.append(rot)           
 
         # Send information to any listener.
         if self.rigidBodyListener is not None:
@@ -159,8 +172,17 @@ class NatNetClient:
         rigidBodyCount = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace( "Rigid Body Count:", rigidBodyCount )
+        
+        self.skel_parts = []
+        
         for j in range( 0, rigidBodyCount ):
-            offset += self.__unpackRigidBody( data[offset:] )
+            offset += self.__unpackRigidBody( data[offset:], skel = True )
+
+        self.skel = self.skel_parts
+        
+        # Send information to any listener.
+        if self.skelListener is not None:
+            self.skelListener(self.skel)
 
         return offset
 
@@ -425,7 +447,7 @@ class NatNetClient:
                 offset += self.__unpackSkeletonDescription( data[offset:] )
             
     def __dataThreadFunction( self, socket ):
-        while True:
+        while True and not self.stopThreads:
             # Block for input
             data, addr = socket.recvfrom( 32768 ) # 32k byte buffer size
 #            print(data)
@@ -502,6 +524,8 @@ class NatNetClient:
         if( self.commandSocket is None ):
             print( "Could not open command channel" )
             exit
+            
+        self.stopThreads = False
 
         # Create a separate thread for receiving data packets
         dataThread = Thread( target = self.__dataThreadFunction, args = (self.dataSocket, ))
@@ -515,3 +539,7 @@ class NatNetClient:
 #        print(data)
 
         self.sendCommand( self.NAT_REQUEST_FRAMEOFDATA, "", self.commandSocket, (self.serverIPAddress, self.commandPort) )
+
+    def stop( self ):
+        pass
+#        self.stopThreads = True
