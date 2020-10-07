@@ -33,6 +33,31 @@ import time
 UDP_IP = "127.0.0.1"
 UDP_PORT = 9000
 
+store = False
+skel_l = 8*13
+many_data = 1000000
+data_store = np.empty([many_data, skel_l])
+count = 0
+mins = 0.5
+freq = 100
+
+samples = int(mins * 60 * freq)
+
+header_base = np.char.array(
+    ['ID', 'pos_x', 'pos_y', 'pos_z', 'quat_x', 'quat_y', 'quat_z', 'quat_w'])
+
+header = np.array([])
+
+for i in range(13):
+
+    n = np.char.array([('_' + str(i+1))])
+
+    if i == 0:
+        header = header_base + (n)
+    else:
+        header = np.r_[header, header_base + (n)]
+
+
 time_prev = time.clock()
 
 skel = None
@@ -51,6 +76,10 @@ def receiveRigidBodyFrame( id, position, rotation ):
 def skelListener(data):
     # print(data)
     global time_prev
+    global count
+    global store
+    global data_store
+
     print('new skeleton')
 
     MESSAGE = [item for sublist in data for item in sublist]
@@ -68,6 +97,24 @@ def skelListener(data):
     time_curr = time.clock()
     print('f = {}s'.format(1/(time_curr-time_prev)))
     time_prev = time_curr
+
+    if store:
+        data_store[count, :] = np.array(MESSAGE)
+
+        print('saved sample #{} of {}'.format(count, samples))
+
+        if count>samples:
+
+            data_store = data_store[:samples,:]
+
+            #save to csv
+            data_store = np.vstack([header, data_store])
+            np.savetxt("motion.csv", data_store, delimiter=",", fmt="%s")
+
+            store = False
+
+    count += 1
+
 
 # This will create a new NatNet client
 streamingClient = NatNetClient()
